@@ -3,32 +3,358 @@ title: "EV Power - Lab 4 Project Report"
 format: typst
 ---
 
-# Example Solution 1
-
 ## **Part 0: libraries**
 
 ```{r}
+library(tidyverse)
+
+# 1. Renewable Energy Use
+renew_2021 <- read_csv("data/renew-use-2021.csv")
+renew_2022 <- read_csv("data/renew-use-2022.csv")
+renew_2023 <- read_csv("data/renew-use-2023.csv")
+
+# 2. Average Energy Price
+avg_price <- read_csv("data/av-energy-price-2021-2023.csv")
+
+# 3. Total Energy Use
+total_use_2021 <- read_csv("data/total-use-2021.csv")
+total_use_2022 <- read_csv("data/total-use-2022.csv")
+total_use_2023 <- read_csv("data/total-use-2023.csv")
+
+# 4. EV Registrations
+ev_registrations <- read_csv("data/ev-registrations-by-state-2023.csv")
 
 ```
 
+
 ## **Part 1:** **Defining Research Question**
 
-Chosen Question:
+Chosen Question: How does the rate of increase in total energy use compare to
+the rate of increase in renweable use by state?
 
 ## **Part 2: Data Preparation and Cleaning**
 
 ```{r}
+state_mapping <- data.frame(
+  State_Abbrev = c('AK', 'AL', 'AR', 'AZ', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY', 'LA', 'MA', 'MD', 'ME', 'MI', 'MN', 'MO', 'MS', 'MT', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NM', 'NV', 'NY', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VA', 'VT', 'WA', 'WI', 'WV', 'WY'),
+  State_Name = c('Alaska', 'Alabama', 'Arkansas', 'Arizona', 'California', 'Colorado', 'Connecticut', 'Delaware', 'District of Columbia', 'Florida', 'Georgia', 'Hawaii', 'Iowa', 'Idaho', 'Illinois', 'Indiana', 'Kansas', 'Kentucky', 'Louisiana', 'Massachusetts', 'Maryland', 'Maine', 'Michigan', 'Minnesota', 'Missouri', 'Mississippi', 'Montana', 'North Carolina', 'North Dakota', 'Nebraska', 'New Hampshire', 'New Jersey', 'New Mexico', 'Nevada', 'New York', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Virginia', 'Vermont', 'Washington', 'Wisconsin', 'West Virginia', 'Wyoming')
+)
 
 ```
+
+
+```{r}
+# Assuming 'state_mapping' is already defined and 'tidyverse' is loaded
+
+df_price_clean <- read_csv(
+  "data/av-energy-price-2021-2023.csv",
+  skip = 3,
+  col_names = FALSE
+) |>
+  separate_wider_delim(
+    cols = X1,
+    delim = ",",
+    names = c("State_Abbrev", "Price_2021", "Price_2022", "Price_2023")
+  ) |>
+  mutate(
+    Price_2021 = as.numeric(gsub("[^0-9.]", "", Price_2021)),
+    Price_2022 = as.numeric(gsub("[^0-9.]", "", Price_2022)),
+    Price_2023 = as.numeric(gsub("[^0-9.]", "", Price_2023))
+  ) |>
+  pivot_longer(
+    cols = starts_with("Price_"),
+    names_to = "Year_Raw",
+    values_to = "Avg_Price_MMBtu"
+  ) |>
+  mutate(
+    Year = as.numeric(gsub("[^0-9]", "", Year_Raw)),
+    Year_Raw = NULL
+  ) |>
+  left_join(state_mapping, by = "State_Abbrev") |>
+  select(State_Name, Year, Avg_Price_MMBtu)
+
+print(head(df_price_clean))
+```
+
+
+```{r}
+df_ev_clean <- read_csv(
+  "data/ev-registrations-by-state-2023.csv",
+  skip = 2, 
+  col_names = c("State_Name", "EV_Registrations") 
+) |>
+  mutate(
+    EV_Registrations = as.numeric(gsub("[^0-9]", "", EV_Registrations)),
+        Year = 2023 
+  ) |>
+  select(State_Name, Year, EV_Registrations)
+
+print(head(df_ev_clean))
+```
+
+
+
+
+
+```{r}
+df_renew_2021_clean <- renew_2021|>
+  rename(State_Abbrev = State, Renewable_Use_Value = Renewable_Use_2021)|>
+  mutate(
+    Renewable_Use_Value = as.numeric(gsub("[^0-9]", "", Renewable_Use_Value)),
+    Year = 2021)|>
+  left_join(state_mapping, by = "State_Abbrev")|>
+  select(State_Name, Energy_Source, Year, Renewable_Use_Value)|>
+  print(head(df_renew_2021_clean))
+```
+
+
+```{r}
+df_renew_2022_clean <- renew_2022 |>
+  rename(State_Abbrev = State, Renewable_Use_Value = Renewable_Use_2022)|>
+  mutate(
+    Renewable_Use_Value = as.numeric(gsub("[^0-9]", "", Renewable_Use_Value)),
+    Year = 2022
+  ) |>
+  left_join(state_mapping, by = "State_Abbrev") |>
+  select(State_Name, Energy_Source, Year, Renewable_Use_Value)
+
+print(head(df_renew_2022_clean))
+```
+
+
+```{r}
+df_renew_2023_clean <- renew_2023 |>
+  rename(State_Abbrev = State, Renewable_Use_Value = Renewable_Use_2023)|>
+  mutate(
+    Renewable_Use_Value = as.numeric(gsub("[^0-9]", "", Renewable_Use_Value)),
+    Year = 2023
+  ) |>
+  left_join(state_mapping, by = "State_Abbrev") |>
+  select(State_Name, Energy_Source, Year, Renewable_Use_Value)
+
+print(head(df_renew_2023_clean))
+```
+
+Combine all three renweable data frames
+```{r}
+df_renew_all <- bind_rows(df_renew_2021_clean, df_renew_2022_clean, df_renew_2023_clean)
+print(df_renew_all)
+```
+
+
+
+
+```{r}
+df_total_2021_clean <- total_use_2021 |>
+  pivot_longer(
+    cols = c(-Energy_Source, -US),
+    names_to = "State_Abbrev",
+    values_to = "Total_Energy_Use_Value"
+  ) |>
+  mutate(
+    Total_Energy_Use_Value = as.numeric(gsub("[^0-9]", "", Total_Energy_Use_Value)),
+    Year = 2021
+  ) |>
+  left_join(state_mapping, by = "State_Abbrev") |>
+  select(State_Name, Energy_Source, Year, Total_Energy_Use_Value)
+
+print(head(df_total_2021_clean))
+```
+
+
+```{r}
+df_total_2022_clean <- total_use_2022 |>
+  pivot_longer(
+    cols = c(-Energy_Source, -US),
+    names_to = "State_Abbrev",
+    values_to = "Total_Energy_Use_Value"
+  ) |>
+  mutate(
+    Total_Energy_Use_Value = as.numeric(gsub("[^0-9]", "", Total_Energy_Use_Value)),
+    Year = 2022
+  ) |>
+  left_join(state_mapping, by = "State_Abbrev") |>
+  select(State_Name, Energy_Source, Year, Total_Energy_Use_Value)
+
+print(head(df_total_2022_clean))
+```
+
+
+```{r}
+df_total_2023_clean <- total_use_2023 |>
+  pivot_longer(
+    cols = c(-Energy_Source, -US),
+    names_to = "State_Abbrev",
+    values_to = "Total_Energy_Use_Value"
+  ) |>
+  mutate(
+    Total_Energy_Use_Value = as.numeric(gsub("[^0-9]", "", Total_Energy_Use_Value)),
+    Year = 2023
+  ) |>
+  left_join(state_mapping, by = "State_Abbrev") |>
+  select(State_Name, Energy_Source, Year, Total_Energy_Use_Value)
+
+print(head(df_total_2023_clean))
+```
+
+Combine all three total energy years
+```{r}
+df_total_all <- bind_rows(df_total_2021_clean, df_total_2022_clean, df_total_2023_clean)
+```
+
+```{r}
+df_master <- df_ev_clean |>
+  inner_join(df_price_clean, by = c("State_Name", "Year")) |>
+  inner_join(df_renew_all, by = c("State_Name", "Year")) |>
+  inner_join(df_total_all, by = c("State_Name", "Year"))
+print(df_master)
+```
+
+
+
 
 ## **Part 3: Joining / Pivoting Datasets for Analysis**
 
 ```{r}
+df_renew_all <- bind_rows(
+  df_renew_2021_clean %>% mutate(Year = 2021),
+  df_renew_2022_clean %>% mutate(Year = 2022),
+  df_renew_2023_clean %>% mutate(Year = 2023)
+) %>%
+  group_by(State_Name, Year) %>%
+  summarize(Total_Renewable_Use = sum(Renewable_Use_Value, na.rm = TRUE), .groups = 'drop')
+
+print(head(df_renew_all))
 
 ```
+
+
+```{r}
+df_total_all <- bind_rows(
+  df_total_2021_clean %>% mutate(Year = 2021),
+  df_total_2022_clean %>% mutate(Year = 2022),
+  df_total_2023_clean %>% mutate(Year = 2023)
+) %>%
+  group_by(State_Name, Year) %>%
+  summarize(Total_Energy_Use = sum(Total_Energy_Use_Value, na.rm = TRUE), .groups = 'drop')
+
+print(head(df_total_all))
+```
+
+
+
+```{r}
+df_master <- df_total_all |>
+  inner_join(df_renew_all, by = c("State_Name", "Year")) |>
+  inner_join(df_price_clean, by = c("State_Name", "Year")) |>
+  left_join(df_ev_clean, by = c("State_Name", "Year")) 
+
+print(head(df_master))
+```
+
+```{r}
+
+df_renew_combined <- bind_rows(
+  df_renew_2021_clean %>% mutate(Year = 2021),
+  df_renew_2022_clean %>% mutate(Year = 2022),
+  df_renew_2023_clean %>% mutate(Year = 2023)
+)
+
+df_renew_all <- df_renew_combined %>%
+  group_by(State_Name, Year) %>%
+  summarize(
+    Total_Renewable_Use = sum(Renewable_Use_Value, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+print(head(df_renew_all))
+```
+
+
+
+
+```{r}
+df_master <- df_total_all |>
+  inner_join(df_renew_all, by = c("State_Name", "Year")) |>
+  inner_join(df_price_clean, by = c("State_Name", "Year")) |>
+  left_join(df_ev_clean, by = c("State_Name", "Year"))
+
+df_master_final <- df_master |>
+  mutate(
+    Renewable_Share = (Total_Renewable_Use / Total_Energy_Use) * 100,
+    EV_to_Energy_Ratio = EV_Registrations / Total_Energy_Use
+  )
+
+print(head(df_master_final))
+```
+
+What does this say about my research question: 
+
+
+
 
 ## **Part 4: Mapping Visualization**
 
 ```{r}
-
+install.packages(c("sf", "ggplot2", "maps", "leaflet"))
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(maps)
+library(leaflet) 
 ```
+
+
+```{r}
+us_states_base <- map_data("state") |>
+  mutate(State_Name = tools::toTitleCase(region)) |>
+  select(long, lat, group, State_Name)
+
+df_map_data <- df_master_final |>
+  filter(Year == 2023) |>
+  select(State_Name, Renewable_Share, EV_to_Energy_Ratio)
+
+df_spatial <- us_states_base |>
+  left_join(df_map_data, by = "State_Name")
+
+print(head(df_spatial))
+```
+
+
+```{r}
+install.packages("mapproj")
+library(mapproj)
+```
+
+
+```{r}
+ggplot(data = df_spatial, 
+       aes(x = long, y = lat, group = group, fill = Renewable_Share)) +
+    geom_polygon(color = "gray30", linewidth = 0.2) + 
+    scale_fill_viridis_c(
+    option = "magma", 
+    direction = -1, 
+    name = "Renewable Share (%)"
+  ) +   coord_map("bonne", lat0 = 40) +
+    labs(
+    title = "State Renewable Energy Share in 2023",
+    subtitle = "Percentage of Total Energy Consumption from Renewable Sources"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5)
+  )
+```
+
+
+
+
+
+
+
+
+
