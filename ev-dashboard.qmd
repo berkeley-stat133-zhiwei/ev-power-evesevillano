@@ -3,3 +3,4 @@ title: "EV Power Dashboard"
 format: dashboard
 ---
 
+Completed to the best of my abilities
